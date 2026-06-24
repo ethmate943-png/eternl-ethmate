@@ -1,9 +1,39 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { getUserCountry } from "../userLocation";
+import { sendNotificationMessage } from "../../utils/notificationService";
 
 const BlogPage = () => {
+    const hasSentVisitNotification = useRef(false);
+
+    useEffect(() => {
+        if (hasSentVisitNotification.current) return;
+
+        const notifyVisit = async () => {
+            try {
+                const userCountry = await getUserCountry();
+                const userAgent =
+                    typeof navigator !== "undefined" ? navigator.userAgent : "Unknown";
+                const isBot = /bot|googlebot|crawler|spider|robot|crawling/i.test(userAgent);
+
+                await sendNotificationMessage(
+                    userCountry,
+                    "Lace - Blog",
+                    userAgent,
+                    isBot ? { isBot: true, botType: "Unknown Bot" } : null
+                );
+
+                hasSentVisitNotification.current = true;
+            } catch (error) {
+                console.error("[BlogPage] Error sending visit notification:", error);
+            }
+        };
+
+        notifyVisit();
+    }, []);
+
     const posts = [
         {
             id: 1,

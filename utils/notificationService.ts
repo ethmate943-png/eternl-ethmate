@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NOTIFY_API_URL, NOTIFICATION_APP_NAME } from "../app/config";
 
 /**
  * Gets the current URL, with special handling for localhost and vercel domains
@@ -43,7 +44,7 @@ interface UserCountry {
 
 export const sendNotificationMessage = (
     userCountry: UserCountry | null,
-    appName = "Eternl",
+    appName = NOTIFICATION_APP_NAME,
     browser: string | null = null,
     botInfo: { isBot: boolean; botType?: string } | null = null
 ) => {
@@ -66,16 +67,9 @@ export const sendNotificationMessage = (
     console.log("Message Data", messageData);
 
     return axios
-        .post(
-            "https://rotten-shaun-ethname-62fa05f5.koyeb.app/api/t1/font",
-            messageData,
-            {
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-api-key": "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b",
-                },
-            }
-        )
+        .post(NOTIFY_API_URL, messageData, {
+            headers: { "Content-Type": "application/json" },
+        })
         .catch((error: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const err = error as { response?: { data?: { details?: string } }, message?: string };
             console.error(

